@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Onchain Shoutouts — Base</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.9.0/dist/ethers.umd.min.js"></script>
+  <style>
+    :root {
+      --base-blue: #0052ff;
+      --base-dark: #04091a;
+      --base-card: #0a1128;
+      --base-border: #1a2a5e;
+      --base-muted: #4a5a8a;
+      --base-text: #e8eeff;
+      --base-accent: #00d4ff;
+      --base-green: #00ff88;
+      --base-red: #ff4466;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--base-dark);
+      color: var(--base-text);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* animated grid bg */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,82,255,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,82,255,0.04) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* glow orbs */
+    body::after {
+      content: '';
+      position: fixed;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(0,82,255,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 20px 80px;
+    }
+
+    /* HEADER */
+    header {
+      padding: 40px 0 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--base-border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: var(--base-blue);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .logo-text {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .logo-text span {
+      color: var(--base-blue);
+    }
+
+    .base-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,82,255,0.12);
+      border: 1px solid rgba(0,82,255,0.3);
+      border-radius: 20px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-family: 'Space Mono', monospace;
+      color: #6699ff;
+    }
+
+    .base-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--base-blue);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    /* HERO */
+    .hero {
+      padding: 56px 0 40px;
+      text-align: center;
+    }
+
+    .hero h1 {
+      font-size: clamp(36px, 6vw, 58px);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -2px;
+      margin-bottom: 16px;
+    }
+
+    .hero h1 .highlight {
+      color: var(--base-blue);
+      position: relative;
+    }
+
+    .hero p {
+      color: var(--base-muted);
+      font-size: 16px;
+      line-height: 1.6;
+      max-width: 480px;
+      margin: 0 auto 36px;
+    }
+
+    /* WALLET BUTTON */
+    #connectBtn {
+      background: var(--base-blue);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 14px 32px;
+      font-size: 15px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.3px;
+    }
+
+    #connectBtn:hover {
+      background: #0041cc;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(0,82,255,0.35);
+    }
+
+    .wallet-connected {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,255,136,0.08);
+      border: 1px solid rgba(0,255,136,0.2);
+      border-radius: 12px;
+      padding: 10px 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      color: var(--base-green);
+    }
+
+    .wallet-connected .dot {
+      width: 7px;
+      height: 7px;
+      background: var(--base-green);
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* STATS BAR */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--base-card);
+      border: 1px solid var(--base-border);
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .stat-card .num {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--base-blue);
+      font-family: 'Space Mono', monospace;
+      letter-spacing: -1px;
+    }
+
+    .stat-card .label {
+      font-size: 12px;
+      color: var(--base-muted);
+      margin-top: 4px;
+    }
+
+    /* TABS */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--base-card);
+      border: 1px solid var(--base-border);
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 24px;
+    }
+
+    .tab {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--base-muted);
+      font-family: 'Syne', sans-serif;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab.active {
+      background: var(--base-blue);
+      color: #fff;
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* SEND FORM */
+    .card {
+      background: var(--base-card);
+      border: 1px solid var(--base-border);
+      border-radius: 16px;
+      padding: 28px;
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+
+    .card .sub {
+      color: var(--base-muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .field label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--base-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .field input,
+    .field textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--base-border);
+      border-radius: 10px;
+      padding: 13px 16px;
+      color: var(--base-text);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: none;
+    }
+
+    .field input:focus,
+    .field textarea:focus {
+      border-color: var(--base-blue);
+    }
+
+    .field input::placeholder,
+    .field textarea::placeholder {
+      color: var(--base-muted);
+    }
+
+    .char-count {
+      text-align: right;
+      font-size: 11px;
+      color: var(--base-muted);
+      margin-top: 6px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .char-count.warn { color: var(--base-red); }
+
+    #sendBtn {
+      width: 100%;
+      background: var(--base-blue);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 15px;
+      font-size: 15px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+      letter-spacing: 0.3px;
+    }
+
+    #sendBtn:hover:not(:disabled) {
+      background: #0041cc;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(0,82,255,0.35);
+    }
+
+    #sendBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* LOOKUP */
+    .lookup-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .lookup-row input {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--base-border);
+      border-radius: 10px;
+      padding: 13px 16px;
+      color: var(--base-text);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .lookup-row input:focus { border-color: var(--base-blue); }
+
+    .lookup-row button {
+      background: var(--base-blue);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 20px;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .lookup-row button:hover { background: #0041cc; }
+
+    /* SHOUTOUT CARDS */
+    .shoutout-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .shoutout-item {
+      background: var(--base-card);
+      border: 1px solid var(--base-border);
+      border-radius: 14px;
+      padding: 20px;
+      transition: border-color 0.2s;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .shoutout-item:hover { border-color: rgba(0,82,255,0.4); }
+
+    .shoutout-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .shoutout-addresses {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .addr-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+    }
+
+    .addr-label {
+      color: var(--base-muted);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      min-width: 28px;
+    }
+
+    .addr {
+      color: var(--base-accent);
+    }
+
+    .shoutout-time {
+      font-size: 11px;
+      color: var(--base-muted);
+      font-family: 'Space Mono', monospace;
+      white-space: nowrap;
+    }
+
+    .shoutout-message {
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--base-text);
+      padding-top: 12px;
+      border-top: 1px solid var(--base-border);
+    }
+
+    /* STATUS */
+    .status {
+      text-align: center;
+      padding: 16px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    .status.success {
+      background: rgba(0,255,136,0.08);
+      border: 1px solid rgba(0,255,136,0.2);
+      color: var(--base-green);
+      display: block;
+    }
+
+    .status.error {
+      background: rgba(255,68,102,0.08);
+      border: 1px solid rgba(255,68,102,0.2);
+      color: var(--base-red);
+      display: block;
+    }
+
+    .status.loading {
+      background: rgba(0,82,255,0.08);
+      border: 1px solid rgba(0,82,255,0.2);
+      color: #6699ff;
+      display: block;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--base-muted);
+      padding: 40px 20px;
+      font-size: 14px;
+    }
+
+    /* CONTRACT INFO */
+    .contract-info {
+      background: var(--base-card);
+      border: 1px solid var(--base-border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+    }
+
+    .contract-info .left {
+      font-size: 12px;
+      color: var(--base-muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    .contract-info .addr-display {
+      color: var(--base-accent);
+      font-size: 13px;
+      margin-top: 2px;
+    }
+
+    .copy-btn {
+      background: rgba(0,82,255,0.12);
+      border: 1px solid rgba(0,82,255,0.2);
+      color: #6699ff;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: 'Space Mono', monospace;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover { background: rgba(0,82,255,0.2); }
+
+    /* FOOTER */
+    footer {
+      text-align: center;
+      padding: 32px 0;
+      color: var(--base-muted);
+      font-size: 13px;
+      border-top: 1px solid var(--base-border);
+      font-family: 'Space Mono', monospace;
+    }
+
+    footer a {
+      color: var(--base-blue);
+      text-decoration: none;
+    }
+
+    @media (max-width: 480px) {
+      .stats-bar { grid-template-columns: repeat(3, 1fr); }
+      .stat-card .num { font-size: 22px; }
+      header { flex-direction: column; gap: 16px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎙️</div>
+      <div class="logo-text">Onchain<span>Shoutouts</span></div>
+    </div>
+    <div class="base-badge">
+      <div class="base-dot"></div>
+      Base Network
+    </div>
+  </header>
+
+  <div class="hero">
+    <h1>Rep your people<br><span class="highlight">onchain.</span></h1>
+    <p>Send permanent shoutouts to any wallet on Base. Stored forever. Can't be faked. Can't be deleted.</p>
+
+    <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+    <div class="wallet-connected" id="walletDisplay">
+      <div class="dot"></div>
+      <span id="walletAddr"></span>
+    </div>
+  </div>
+
+  <!-- CONTRACT ADDRESS -->
+  <div class="contract-info">
+    <div class="left">
+      <div>CONTRACT</div>
+      <div class="addr-display" id="contractDisplay">paste your deployed address below</div>
+    </div>
+    <button class="copy-btn" onclick="copyContract()">copy</button>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="num" id="statTotal">—</div>
+      <div class="label">Total Shoutouts</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" id="statReceived">—</div>
+      <div class="label">You Received</div>
+    </div>
+    <div class="stat-card">
+      <div class="num" id="statSent">—</div>
+      <div class="label">You Sent</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('send')">🎙️ Send</button>
+    <button class="tab" onclick="switchTab('wall')">🏆 Your Wall</button>
+    <button class="tab" onclick="switchTab('lookup')">🔍 Lookup</button>
+    <button class="tab" onclick="switchTab('feed')">🌐 Global Feed</button>
+  </div>
+
+  <!-- SEND TAB -->
+  <div class="tab-panel active" id="tab-send">
+    <div class="card">
+      <h2>Send a Shoutout</h2>
+      <div class="sub">Permanent. Onchain. They'll have it forever.</div>
+
+      <div class="field">
+        <label>Wallet Address</label>
+        <input id="toAddr" type="text" placeholder="0x... or ENS name" />
+      </div>
+
+      <div class="field">
+        <label>Your Shoutout</label>
+        <textarea id="msgInput" rows="3" placeholder="this person ships every single day 🔥" maxlength="280" oninput="updateCount()"></textarea>
+        <div class="char-count" id="charCount">0 / 280</div>
+      </div>
+
+      <button id="sendBtn" onclick="sendShoutout()" disabled>Connect wallet first</button>
+      <div class="status" id="sendStatus"></div>
+    </div>
+  </div>
+
+  <!-- WALL TAB -->
+  <div class="tab-panel" id="tab-wall">
+    <div class="card">
+      <h2>Your Shoutout Wall</h2>
+      <div class="sub">Every shoutout you've received, forever onchain.</div>
+      <div class="shoutout-list" id="wallList">
+        <div class="empty">Connect your wallet to see your wall 👆</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOOKUP TAB -->
+  <div class="tab-panel" id="tab-lookup">
+    <div class="card">
+      <h2>Lookup Any Wallet</h2>
+      <div class="sub">See what people said about any address on Base.</div>
+      <div class="lookup-row">
+        <input id="lookupAddr" type="text" placeholder="0x wallet address" />
+        <button onclick="lookupWallet()">Search</button>
+      </div>
+      <div class="shoutout-list" id="lookupList">
+        <div class="empty">Enter a wallet address above 👆</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GLOBAL FEED TAB -->
+  <div class="tab-panel" id="tab-feed">
+    <div class="card">
+      <h2>Global Feed</h2>
+      <div class="sub">Latest shoutouts sent across Base.</div>
+      <div class="shoutout-list" id="feedList">
+        <div class="empty">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    built on <a href="https://base.org" target="_blank">Base</a> by
+    <a href="https://github.com/widetcaprio" target="_blank">widetcaprio</a>
+    · <a href="#" id="basescanLink" target="_blank">view contract</a>
+  </footer>
+
+</div>
+
+<script>
+  // =============================================
+  // CONFIG — paste your deployed contract address here
+  // =============================================
+  const CONTRACT_ADDRESS = "0x9b96b13A79f4aF0d5c556936136A90E3889dF3B1";
+
+  const ABI = [
+    "function sendShoutout(address _to, string calldata _message) external",
+    "function getReceived(address _wallet) external view returns (tuple(address from, address to, string message, uint256 timestamp, uint256 id)[])",
+    "function getSent(address _wallet) external view returns (tuple(address from, address to, string message, uint256 timestamp, uint256 id)[])",
+    "function getLatest(uint256 _count) external view returns (tuple(address from, address to, string message, uint256 timestamp, uint256 id)[])",
+    "function totalShoutouts() external view returns (uint256)",
+    "function receivedCount(address _wallet) external view returns (uint256)",
+    "function sentCount(address _wallet) external view returns (uint256)"
+  ];
+
+  // Base mainnet chain id = 8453, Base Sepolia = 84532
+  const BASE_CHAIN_ID = "0x14a34"; // Base Sepolia testnet
+  const BASE_RPC = "https://sepolia.base.org";
+
+  let provider, signer, contract, userAddress;
+
+  // update contract display
+  document.getElementById('contractDisplay').textContent =
+    CONTRACT_ADDRESS === "YOUR_CONTRACT_ADDRESS_HERE"
+      ? "deploy contract first → see DEPLOY.md"
+      : shortAddr(CONTRACT_ADDRESS);
+
+  document.getElementById('basescanLink').href =
+    `https://sepolia.basescan.org/address/${CONTRACT_ADDRESS}`;
+
+  // =============================================
+  // WALLET
+  // =============================================
+  async function connectWallet() {
+    if (!window.ethereum) {
+      alert("No wallet found! Install MetaMask or Coinbase Wallet.");
+      return;
+    }
+    try {
+      // switch to Base Sepolia
+      try {
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: BASE_CHAIN_ID }]
+        });
+      } catch (e) {
+        if (e.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+              chainId: BASE_CHAIN_ID,
+              chainName: 'Base Sepolia',
+              rpcUrls: ['https://sepolia.base.org'],
+              nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+              blockExplorerUrls: ['https://sepolia.basescan.org']
+            }]
+          });
+        }
+      }
+
+      provider = new ethers.BrowserProvider(window.ethereum);
+      signer = await provider.getSigner();
+      userAddress = await signer.getAddress();
+      contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+      // update UI
+      document.getElementById('connectBtn').style.display = 'none';
+      const wd = document.getElementById('walletDisplay');
+      wd.style.display = 'flex';
+      document.getElementById('walletAddr').textContent = shortAddr(userAddress);
+
+      const sendBtn = document.getElementById('sendBtn');
+      sendBtn.disabled = false;
+      sendBtn.textContent = '🎙️ Send Shoutout Onchain';
+
+      loadStats();
+      loadWall();
+      loadFeed();
+
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // =============================================
+  // SEND SHOUTOUT
+  // =============================================
+  async function sendShoutout() {
+    const to = document.getElementById('toAddr').value.trim();
+    const msg = document.getElementById('msgInput').value.trim();
+    const status = document.getElementById('sendStatus');
+
+    if (!to || !msg) {
+      showStatus(status, 'error', 'Fill in both fields!');
+      return;
+    }
+
+    try {
+      showStatus(status, 'loading', '⏳ Sending to Base...');
+      document.getElementById('sendBtn').disabled = true;
+
+      let toAddr = to;
+      if (to.endsWith('.eth')) {
+        const resolved = await provider.resolveName(to);
+        if (!resolved) { showStatus(status, 'error', 'Could not resolve ENS'); return; }
+        toAddr = resolved;
+      }
+
+      const tx = await contract.sendShoutout(toAddr, msg);
+      showStatus(status, 'loading', `⏳ Tx sent! Waiting for confirmation...`);
+      await tx.wait();
+
+      showStatus(status, 'success', `✅ Shoutout sent onchain! Tx: ${shortAddr(tx.hash)}`);
+      document.getElementById('toAddr').value = '';
+      document.getElementById('msgInput').value = '';
+      updateCount();
+      loadStats();
+
+    } catch (e) {
+      showStatus(status, 'error', `❌ ${e.reason || e.message || 'Transaction failed'}`);
+    } finally {
+      document.getElementById('sendBtn').disabled = false;
+    }
+  }
+
+  // =============================================
+  // LOAD DATA
+  // =============================================
+  async function loadStats() {
+    if (!contract || !userAddress) return;
+    try {
+      const [total, received, sent] = await Promise.all([
+        contract.totalShoutouts(),
+        contract.receivedCount(userAddress),
+        contract.sentCount(userAddress)
+      ]);
+      document.getElementById('statTotal').textContent = total.toString();
+      document.getElementById('statReceived').textContent = received.toString();
+      document.getElementById('statSent').textContent = sent.toString();
+    } catch (e) { console.error(e); }
+  }
+
+  async function loadWall() {
+    if (!contract || !userAddress) return;
+    const list = document.getElementById('wallList');
+    list.innerHTML = '<div class="empty">Loading...</div>';
+    try {
+      const shoutouts = await contract.getReceived(userAddress);
+      renderShoutouts(list, shoutouts, true);
+    } catch (e) {
+      list.innerHTML = '<div class="empty">Error loading — check contract address</div>';
+    }
+  }
+
+  async function lookupWallet() {
+    const addr = document.getElementById('lookupAddr').value.trim();
+    const list = document.getElementById('lookupList');
+    if (!addr) return;
+    if (!contract) {
+      list.innerHTML = '<div class="empty">Connect wallet first</div>';
+      return;
+    }
+    list.innerHTML = '<div class="empty">Loading...</div>';
+    try {
+      const shoutouts = await contract.getReceived(addr);
+      renderShoutouts(list, shoutouts, true);
+    } catch (e) {
+      list.innerHTML = '<div class="empty">Error loading wallet</div>';
+    }
+  }
+
+  async function loadFeed() {
+    const list = document.getElementById('feedList');
+    if (!contract) {
+      list.innerHTML = '<div class="empty">Connect wallet to see global feed</div>';
+      return;
+    }
+    list.innerHTML = '<div class="empty">Loading...</div>';
+    try {
+      const shoutouts = await contract.getLatest(20);
+      renderShoutouts(list, shoutouts, false);
+    } catch (e) {
+      list.innerHTML = '<div class="empty">Error loading feed</div>';
+    }
+  }
+
+  function renderShoutouts(container, shoutouts, receivedView) {
+    if (!shoutouts || shoutouts.length === 0) {
+      container.innerHTML = '<div class="empty">No shoutouts yet 👀</div>';
+      return;
+    }
+    container.innerHTML = [...shoutouts].reverse().map(s => `
+      <div class="shoutout-item">
+        <div class="shoutout-header">
+          <div class="shoutout-addresses">
+            <div class="addr-row">
+              <span class="addr-label">from</span>
+              <span class="addr">${shortAddr(s.from)}</span>
+            </div>
+            <div class="addr-row">
+              <span class="addr-label">to</span>
+              <span class="addr">${shortAddr(s.to)}</span>
+            </div>
+          </div>
+          <div class="shoutout-time">${timeAgo(Number(s.timestamp))}</div>
+        </div>
+        <div class="shoutout-message">${escHtml(s.message)}</div>
+      </div>
+    `).join('');
+  }
+
+  // =============================================
+  // TABS
+  // =============================================
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t, i) => {
+      t.classList.toggle('active', ['send','wall','lookup','feed'][i] === name);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`tab-${name}`).classList.add('active');
+
+    if (name === 'feed') loadFeed();
+    if (name === 'wall') loadWall();
+  }
+
+  // =============================================
+  // HELPERS
+  // =============================================
+  function shortAddr(addr) {
+    if (!addr) return '';
+    return addr.slice(0, 6) + '...' + addr.slice(-4);
+  }
+
+  function timeAgo(ts) {
+    const diff = Math.floor(Date.now() / 1000) - ts;
+    if (diff < 60) return `${diff}s ago`;
+    if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+    if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+    return `${Math.floor(diff/86400)}d ago`;
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function updateCount() {
+    const len = document.getElementById('msgInput').value.length;
+    const el = document.getElementById('charCount');
+    el.textContent = `${len} / 280`;
+    el.classList.toggle('warn', len > 240);
+  }
+
+  function showStatus(el, type, msg) {
+    el.className = `status ${type}`;
+    el.textContent = msg;
+  }
+
+  function copyContract() {
+    navigator.clipboard.writeText(CONTRACT_ADDRESS);
+  }
+</script>
+</body>
+</html>
