@@ -656,7 +656,7 @@
 
       <div class="field">
         <label>Wallet Address</label>
-        <input id="toAddr" type="text" placeholder="0x... or ENS name" />
+        <input id="toAddr" type="text" placeholder="0x wallet address" />
       </div>
 
       <div class="field">
@@ -859,10 +859,10 @@
       document.getElementById('sendBtn').disabled = true;
 
       let toAddr = to;
-      if (to.endsWith('.eth')) {
-        const resolved = await provider.resolveName(to);
-        if (!resolved) { showStatus(status, 'error', 'Could not resolve ENS'); return; }
-        toAddr = resolved;
+      if (!toAddr.startsWith('0x') || toAddr.length !== 42) {
+        showStatus(status, 'error', '❌ Please enter a valid 0x wallet address');
+        document.getElementById('sendBtn').disabled = false;
+        return;
       }
 
       const tx = await contract.sendShoutout(toAddr, msg);
