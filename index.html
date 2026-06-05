@@ -581,10 +581,37 @@
     <h1>Rep your people<br><span class="highlight">onchain.</span></h1>
     <p>Send permanent shoutouts to any wallet on Base. Stored forever. Can't be faked. Can't be deleted.</p>
 
-    <button id="connectBtn" onclick="connectWallet()">Connect Wallet</button>
+    <button id="connectBtn" onclick="openWalletModal()">Connect Wallet</button>
     <div class="wallet-connected" id="walletDisplay">
       <div class="dot"></div>
       <span id="walletAddr"></span>
+    </div>
+  </div>
+
+  <!-- WALLET PICKER MODAL -->
+  <div id="walletModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:999; align-items:center; justify-content:center;">
+    <div style="background:#0a1128; border:1px solid #1a2a5e; border-radius:20px; padding:32px; width:340px; max-width:90vw;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
+        <div style="font-size:18px; font-weight:800;">Connect Wallet</div>
+        <button onclick="closeWalletModal()" style="background:none; border:none; color:#4a5a8a; font-size:22px; cursor:pointer;">✕</button>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <button onclick="connectWith('metamask')" style="display:flex; align-items:center; gap:14px; background:rgba(255,255,255,0.04); border:1px solid #1a2a5e; border-radius:12px; padding:16px; cursor:pointer; color:#e8eeff; font-family:'Syne',sans-serif; font-size:15px; font-weight:700; transition:all 0.2s;" onmouseover="this.style.borderColor='#0052ff'" onmouseout="this.style.borderColor='#1a2a5e'">
+          <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" width="32" height="32" />
+          MetaMask
+        </button>
+        <button onclick="connectWith('okx')" style="display:flex; align-items:center; gap:14px; background:rgba(255,255,255,0.04); border:1px solid #1a2a5e; border-radius:12px; padding:16px; cursor:pointer; color:#e8eeff; font-family:'Syne',sans-serif; font-size:15px; font-weight:700; transition:all 0.2s;" onmouseover="this.style.borderColor='#0052ff'" onmouseout="this.style.borderColor='#1a2a5e'">
+          <img src="https://static.okx.com/cdn/assets/imgs/247/58E63FEA47A2D7D7.png" width="32" height="32" style="border-radius:8px;" />
+          OKX Wallet
+        </button>
+        <button onclick="connectWith('any')" style="display:flex; align-items:center; gap:14px; background:rgba(255,255,255,0.04); border:1px solid #1a2a5e; border-radius:12px; padding:16px; cursor:pointer; color:#e8eeff; font-family:'Syne',sans-serif; font-size:15px; font-weight:700; transition:all 0.2s;" onmouseover="this.style.borderColor='#0052ff'" onmouseout="this.style.borderColor='#1a2a5e'">
+          <div style="width:32px; height:32px; background:#0052ff; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px;">🔗</div>
+          Other Wallet
+        </button>
+      </div>
+      <div style="text-align:center; margin-top:20px; font-size:12px; color:#4a5a8a; font-family:'Space Mono',monospace;">
+        Connects to Base Sepolia
+      </div>
     </div>
   </div>
 
@@ -692,7 +719,7 @@
   // =============================================
   // CONFIG — paste your deployed contract address here
   // =============================================
-  const CONTRACT_ADDRESS = "0x9b96b13A79f4aF0d5c556936136A90E3889dF3B1";
+  const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS_HERE";
 
   const ABI = [
     "function sendShoutout(address _to, string calldata _message) external",
@@ -720,23 +747,63 @@
     `https://sepolia.basescan.org/address/${CONTRACT_ADDRESS}`;
 
   // =============================================
-  // WALLET
+  // WALLET MODAL
   // =============================================
-  async function connectWallet() {
-    if (!window.ethereum) {
-      alert("No wallet found! Install MetaMask or Coinbase Wallet.");
-      return;
+  function openWalletModal() {
+    document.getElementById('walletModal').style.display = 'flex';
+  }
+
+  function closeWalletModal() {
+    document.getElementById('walletModal').style.display = 'none';
+  }
+
+  async function connectWith(type) {
+    closeWalletModal();
+
+    let walletProvider = null;
+
+    if (type === 'okx') {
+      // OKX injects window.okxwallet
+      if (window.okxwallet) {
+        walletProvider = window.okxwallet;
+      } else if (window.ethereum?.isOKExWallet || window.ethereum?.isOKX) {
+        walletProvider = window.ethereum;
+      } else {
+        alert("OKX Wallet not found! Install it from okx.com/web3");
+        return;
+      }
+    } else if (type === 'metamask') {
+      if (window.ethereum?.isMetaMask) {
+        walletProvider = window.ethereum;
+      } else if (window.ethereum?.providers) {
+        walletProvider = window.ethereum.providers.find(p => p.isMetaMask);
+      }
+      if (!walletProvider) {
+        alert("MetaMask not found! Install it from metamask.io");
+        return;
+      }
+    } else {
+      // any — just use whatever is available
+      walletProvider = window.okxwallet || window.ethereum;
+      if (!walletProvider) {
+        alert("No wallet found! Install MetaMask or OKX Wallet.");
+        return;
+      }
     }
+
     try {
+      // request accounts
+      await walletProvider.request({ method: 'eth_requestAccounts' });
+
       // switch to Base Sepolia
       try {
-        await window.ethereum.request({
+        await walletProvider.request({
           method: 'wallet_switchEthereumChain',
           params: [{ chainId: BASE_CHAIN_ID }]
         });
       } catch (e) {
         if (e.code === 4902) {
-          await window.ethereum.request({
+          await walletProvider.request({
             method: 'wallet_addEthereumChain',
             params: [{
               chainId: BASE_CHAIN_ID,
@@ -749,7 +816,7 @@
         }
       }
 
-      provider = new ethers.BrowserProvider(window.ethereum);
+      provider = new ethers.BrowserProvider(walletProvider);
       signer = await provider.getSigner();
       userAddress = await signer.getAddress();
       contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
@@ -770,6 +837,7 @@
 
     } catch (e) {
       console.error(e);
+      alert("Connection failed: " + (e.message || e));
     }
   }
 
